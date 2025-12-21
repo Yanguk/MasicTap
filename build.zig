@@ -84,7 +84,7 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.addFrameworkPath(b.path("local_frameworks"));
-    exe.addFrameworkPath(.{ .cwd_relative = "/System/Library/PrivateFrameworks" });
+    // exe.addFrameworkPath(.{ .cwd_relative = "/System/Library/PrivateFrameworks" });
 
     exe.linkFramework("MultitouchSupport");
     exe.linkFramework("CoreFoundation");
