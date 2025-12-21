@@ -85,16 +85,17 @@ pub fn build(b: *std.Build) void {
 
     exe.addIncludePath(b.path("c-src"));
 
+    exe.addFrameworkPath(b.path("local_frameworks"));
     exe.addFrameworkPath(.{ .cwd_relative = "/System/Library/PrivateFrameworks" });
 
-    // 프레임워크 링크
     exe.linkFramework("MultitouchSupport");
     exe.linkFramework("CoreFoundation");
     exe.linkFramework("ApplicationServices");
+    exe.linkFramework("IOKit"); // IOKit도 프레임워크입니다!
 
     // 시스템 라이브러리 링크
-    exe.linkSystemLibrary("IOKit");
-    exe.linkSystemLibrary("objc");
+    // exe.linkSystemLibrary("IOKit");
+    // exe.linkSystemLibrary("objc");
 
     // libc 링크 (Objective-C 사용시 필요)
     exe.linkLibC();
