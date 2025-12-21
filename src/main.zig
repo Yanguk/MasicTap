@@ -1,12 +1,22 @@
 const std = @import("std");
-const zig_my_mouse = @import("zig_my_mouse");
+const arithmetic = @cImport({
+    @cInclude("arithmetic.c");
+});
 
-pub fn main() !void {
-    // Prints to stderr, ignoring potential errors.
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
-    try zig_my_mouse.bufferedPrint();
+pub fn main() void {
+    const res = arithmetic.add(1, 2);
+    std.debug.print("DEBUG_💥[2095]: {s}:{d}: res={any}\n", .{ @src().file, @src().line, res });
 }
 
+// const std = @import("std");
+// const zig_my_mouse = @import("zig_my_mouse");
+//
+// pub fn main() !void {
+//     // Prints to stderr, ignoring potential errors.
+//     std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+//     try zig_my_mouse.bufferedPrint();
+// }
+//
 test "simple test" {
     const gpa = std.testing.allocator;
     var list: std.ArrayList(i32) = .empty;

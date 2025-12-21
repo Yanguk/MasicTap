@@ -83,6 +83,22 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
+    exe.addIncludePath(b.path("c-src"));
+
+    exe.addFrameworkPath(.{ .cwd_relative = "/System/Library/PrivateFrameworks" });
+
+    // 프레임워크 링크
+    exe.linkFramework("MultitouchSupport");
+    exe.linkFramework("CoreFoundation");
+    exe.linkFramework("ApplicationServices");
+
+    // 시스템 라이브러리 링크
+    exe.linkSystemLibrary("IOKit");
+    exe.linkSystemLibrary("objc");
+
+    // libc 링크 (Objective-C 사용시 필요)
+    exe.linkLibC();
+
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
     // step). By default the install prefix is `zig-out/` but can be overridden
