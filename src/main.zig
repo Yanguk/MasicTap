@@ -10,11 +10,7 @@ const c = @cImport({
 const MtPoint = extern struct {
     x: f32,
     y: f32,
-}; // MtPoint defined
-
-// External Dependencies for CGEvent
-extern "c" fn CGEventSourceCreate(state: c_int) ?c.CGEventSourceRef;
-// extern "c" fn CGEventCreate(source: ?c.CGEventSourceRef) c.CGEventRef; // Already in ApplicationServices? Likely yes via C import.
+};
 
 const MtReadout = extern struct {
     position: MtPoint,
@@ -50,18 +46,52 @@ extern "c" fn MTDeviceStart(device: MTDeviceRef, state: c_int) callconv(.c) void
 extern "c" fn MTDeviceIsBuiltIn(device: MTDeviceRef) callconv(.c) bool;
 extern "c" fn MTDeviceGetFamilyID(device: MTDeviceRef) callconv(.c) c_int;
 
-// Tap Detection State
-const TapState = struct {
+// External Dependencies for CGEvent
+extern "c" fn CGEventSourceCreate(state: c_int) ?c.CGEventSourceRef;
+
+// 각 손가락별 탭 상태 추적
+const FingerTapState = struct {
+    identifier: c_int,
     start_time: f64,
     start_pos: MtPoint,
-    possible: bool,
+    tracking: bool,
 };
 
-var tap_state: TapState = .{
-    .start_time = 0,
-    .start_pos = .{ .x = 0, .y = 0 },
-    .possible = false,
-};
+const MAX_FINGERS = 10;
+var finger_states: [MAX_FINGERS]FingerTapState = undefined;
+var initialized = false;
+
+fn initFingerStates() void {
+    if (!initialized) {
+        for (&finger_states) |*state| {
+            state.* = .{
+                .identifier = -1,
+                .start_time = 0,
+                .start_pos = .{ .x = 0, .y = 0 },
+                .tracking = false,
+            };
+        }
+        initialized = true;
+    }
+}
+
+fn findFingerState(identifier: c_int) ?*FingerTapState {
+    for (&finger_states) |*state| {
+        if (state.tracking and state.identifier == identifier) {
+            return state;
+        }
+    }
+    return null;
+}
+
+fn getAvailableFingerState() ?*FingerTapState {
+    for (&finger_states) |*state| {
+        if (!state.tracking) {
+            return state;
+        }
+    }
+    return null;
+}
 
 fn clickAtCursor() void {
     const event_source = c.CGEventSourceCreate(c.kCGEventSourceStateHIDSystemState);
@@ -76,88 +106,92 @@ fn clickAtCursor() void {
 
     c.CFRelease(down);
     c.CFRelease(up);
-    std.debug.print("Click simulated at ({d}, {d})\n", .{ pos.x, pos.y });
-}
-
-// 디버그 정보 출력
-fn printDebugInfos(n_fingers: c_int, data: [*c]Touch) void {
-    var i: usize = 0;
-    while (i < @as(usize, @intCast(n_fingers))) : (i += 1) {
-        const f = &data[i];
-        std.debug.print(
-            "Finger: {}, frame: {}, timestamp: {d:.6}, ID: {}, state: {}, " ++
-                "PosX: {d:.4}, PosY: {d:.4}, VelX: {d:.4}, VelY: {d:.4}, " ++
-                "Angle: {d:.4}, MajorAxis: {d:.4}, MinorAxis: {d:.4}\n",
-            .{
-                i,
-                f.frame,
-                f.timestamp,
-                f.identifier,
-                f.state,
-                f.normalized.position.x,
-                f.normalized.position.y,
-                f.normalized.velocity.x,
-                f.normalized.velocity.y,
-                f.angle,
-                f.major_axis,
-                f.minor_axis,
-            },
-        );
-    }
+    std.debug.print("✓ Click simulated at ({d}, {d})\n", .{ pos.x, pos.y });
 }
 
 // 터치 콜백 함수
 export fn touchCallback(device: MTDeviceRef, data: [*c]Touch, n_fingers: c_int, timestamp: f64, frame: c_int) c_int {
     _ = frame;
 
+    initFingerStates();
+
     // Magic Mouse Detection (Not Built-in)
-    const is_magic_mouse = !MTDeviceIsBuiltIn(device);
+    // const is_magic_mouse = !MTDeviceIsBuiltIn(device);
+    const device_ptr = @intFromPtr(device);
 
-    if (n_fingers >= 2) {
-        // Reset tap state if multiple fingers
-        tap_state.possible = false;
+    // // Magic Mouse가 아니면 무시
+    // if (!is_magic_mouse) {
+    //     return 0;
+    // }
 
-        // ... Pinch logic (existing) ...
-        const f1 = &data[0];
-        const f2 = &data[1];
-        const dx = f1.normalized.position.x - f2.normalized.position.x;
-        const dy = f1.normalized.position.y - f2.normalized.position.y;
-        const dist_ab = @sqrt(dx * dx + dy * dy);
+    // 현재 프레임에 있는 손가락 ID 목록
+    var current_ids: [MAX_FINGERS]c_int = undefined;
+    var i: usize = 0;
+    while (i < @as(usize, @intCast(n_fingers))) : (i += 1) {
+        current_ids[i] = data[i].identifier;
+    }
 
-        if (dist_ab > 0.40 and dist_ab < 0.41) {
-            std.debug.print("pinch-in detected\n", .{});
-        } else if (dist_ab < 0.80 and dist_ab > 0.79) {
-            std.debug.print("pinch-out detected\n", .{});
-        }
-    } else if (n_fingers == 1 and is_magic_mouse) {
-        const f = &data[0];
-        // 1 Finger: Start or Continue Tap
-        if (!tap_state.possible) {
-            // New potential tap
-            tap_state.possible = true;
-            tap_state.start_time = timestamp;
-            tap_state.start_pos = f.normalized.position;
-        } else {
-            // Check movement threshold
-            const dx = f.normalized.position.x - tap_state.start_pos.x;
-            const dy = f.normalized.position.y - tap_state.start_pos.y;
+    // 각 손가락 처리
+    i = 0;
+    while (i < @as(usize, @intCast(n_fingers))) : (i += 1) {
+        const f = &data[i];
+
+        if (findFingerState(f.identifier)) |state| {
+            // 이미 추적 중인 손가락 - 이동 체크
+            const dx = f.normalized.position.x - state.start_pos.x;
+            const dy = f.normalized.position.y - state.start_pos.y;
             const dist_sq = dx * dx + dy * dy;
-            if (dist_sq > 0.002) { // Sensitivity threshold
-                tap_state.possible = false;
+
+            if (dist_sq > 0.002) {
+                // 너무 많이 움직임 - 추적 중단
+                state.tracking = false;
+            }
+        } else {
+            // 새로운 손가락 - 추적 시작
+            if (getAvailableFingerState()) |state| {
+                state.* = .{
+                    .identifier = f.identifier,
+                    .start_time = timestamp,
+                    .start_pos = f.normalized.position,
+                    .tracking = true,
+                };
+                std.debug.print("[0x{X}] Finger {} tap started at ({d:.4}, {d:.4})\n", .{ device_ptr, f.identifier, f.normalized.position.x, f.normalized.position.y });
             }
         }
-    } else if (n_fingers == 0) {
-        // 0 Fingers: Lift
-        if (tap_state.possible) {
-            const duration = timestamp - tap_state.start_time;
-            if (duration < 0.3) { // 300ms max duration for tap
-                std.debug.print("Tap detected! Duration: {d:.3}s\n", .{duration});
+    }
+
+    // 떼어진 손가락 감지 및 탭 판정
+    for (&finger_states) |*state| {
+        if (!state.tracking) continue;
+
+        // 현재 프레임에 이 손가락이 없으면 떼어진 것
+        var found = false;
+        var j: usize = 0;
+        while (j < @as(usize, @intCast(n_fingers))) : (j += 1) {
+            if (current_ids[j] == state.identifier) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            // 손가락이 떼어짐
+            const duration = timestamp - state.start_time;
+
+            // 최소 터치 시간과 최대 터치 시간 체크
+            if (duration > 0.05 and duration < 0.5) {
+                // 탭 성공!
+                std.debug.print("[0x{X}] ✓ Tap detected! Finger {}, Duration: {d:.3}s\n", .{ device_ptr, state.identifier, duration });
                 clickAtCursor();
+            } else if (duration <= 0.05) {
+                std.debug.print("[0x{X}] Tap too short for finger {} ({d:.3}s)\n", .{ device_ptr, state.identifier, duration });
+            } else {
+                std.debug.print("[0x{X}] Tap too long for finger {} ({d:.3}s)\n", .{ device_ptr, state.identifier, duration });
             }
-            tap_state.possible = false;
+
+            state.tracking = false;
         }
-    } else {
-        tap_state.possible = false;
+
     }
 
     return 0;
@@ -165,9 +199,6 @@ export fn touchCallback(device: MTDeviceRef, data: [*c]Touch, n_fingers: c_int, 
 
 pub fn main() !void {
     std.debug.print("Starting multitouch detection...\n", .{});
-
-    // 프레임워크 동적 로드 (Removed for static linking)
-    // try loadMultitouchFramework();
 
     // 멀티터치 디바이스 리스트 가져오기
     const device_list = MTDeviceCreateList();
