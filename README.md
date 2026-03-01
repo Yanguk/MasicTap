@@ -26,9 +26,24 @@ This project is still in development. Features may change.
 
 ## 실행 방법
 
+### 1) 백엔드 실행
+
 ```bash
 zig build run
 ```
+
+### 2) macOS 클라이언트 실행 (SwiftUI)
+
+```bash
+cd mac-client
+swift run
+```
+
+클라이언트에서:
+- `Backend Binary`에 백엔드 실행 파일 경로를 입력
+- 기본값은 `../zig-out/bin/zig_my_mouse`
+- `Start` 버튼으로 백엔드 시작, `Stop` 버튼으로 종료
+- 로그 영역에서 탭/클릭 이벤트 출력 확인
 
 ## macOS 권한
 
