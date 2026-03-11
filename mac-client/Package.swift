@@ -14,5 +14,10 @@ let package = Package(
             name: "MagicTapClient",
             path: "Sources/MagicTapClient"
         ),
+        .testTarget(
+            name: "MagicTapClientTests",
+            dependencies: ["MagicTapClient"],
+            path: "Tests/MagicTapClientTests"
+        ),
     ]
 )
