@@ -69,14 +69,10 @@ struct MagicTapClientApp: App {
 
     var body: some Scene {
         MenuBarExtra("MagicTap", systemImage: controller.isRunning ? "hand.tap.fill" : "hand.tap") {
-            Text(controller.isRunning ? "● 실행 중" : "○ 중지됨")
-                .foregroundStyle(controller.isRunning ? .green : .secondary)
-
-            Divider()
-
-            Button(controller.isRunning ? "끄기" : "켜기") {
-                if controller.isRunning { controller.stop() } else { controller.start() }
-            }
+            Toggle(controller.isRunning ? "실행 중" : "중지됨", isOn: Binding(
+                get: { controller.isRunning },
+                set: { _ in controller.isRunning ? controller.stop() : controller.start() }
+            ))
 
             Divider()
 
