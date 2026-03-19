@@ -62,11 +62,23 @@ PLIST
 chmod +x "$APP/Contents/MacOS/MagicTapClient"
 chmod +x "$APP/Contents/MacOS/zig_my_mouse"
 
-# 5. zip 패키징
-echo "==> Packaging..."
-cd "$DIST"
-zip -r "MagicTap-${VERSION}-arm64.zip" "MagicTap.app"
+# 5. DMG 생성
+echo "==> Creating DMG..."
+DMG_STAGING="$DIST/dmg-staging"
+DMG_NAME="MagicTap-${VERSION}-arm64.dmg"
+mkdir -p "$DMG_STAGING"
+cp -r "$APP" "$DMG_STAGING/"
+ln -s /Applications "$DMG_STAGING/Applications"
+
+hdiutil create \
+  -volname "MagicTap ${VERSION}" \
+  -srcfolder "$DMG_STAGING" \
+  -ov \
+  -format UDZO \
+  "$DIST/$DMG_NAME"
+
+rm -rf "$DMG_STAGING"
 
 echo ""
-echo "Done! → $DIST/MagicTap-${VERSION}-arm64.zip"
-ls -lh "$DIST/MagicTap-${VERSION}-arm64.zip"
+echo "Done! → $DIST/$DMG_NAME"
+ls -lh "$DIST/$DMG_NAME"
