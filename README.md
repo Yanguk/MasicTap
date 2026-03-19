@@ -23,7 +23,20 @@ This project is still in development. Features may change.
 - 탭 인정: 손가락이 `0.05s` 이상 `0.5s` 이하로 짧게 닿았다 떨어지면 클릭을 발생시킵니다.
 - 이동 허용치: 탭 중 이동량이 `TAP_MAX_MOVE`를 넘으면 탭으로 보지 않습니다.
 
-## 실행 방법
+## 릴리스 빌드 & 배포
+
+```bash
+# 빌드 (dist/ 에 .app + .dmg 생성)
+bash scripts/build-release.sh v0.1.0
+
+# GitHub Release에 업로드
+bash scripts/upload-release.sh v0.1.0
+```
+
+- `build-release.sh` — Zig 백엔드와 Swift 클라이언트를 `MagicTap.app`으로 패키징하고 DMG를 생성합니다.
+- `upload-release.sh` — `dist/` 의 아티팩트를 GitHub Release에 업로드합니다. 릴리스가 없으면 자동 생성됩니다.
+
+## 개발 실행 방법
 
 ### 1) 백엔드 실행
 
