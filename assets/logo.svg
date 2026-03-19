@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="mouseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2C2C2E;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1C1C1E;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="fingerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD6B8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F0B99A;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Magic Mouse body -->
+  <rect x="62" y="30" width="76" height="110" rx="38" ry="38"
+        fill="url(#mouseGrad)" filter="url(#shadow)"/>
+
+  <!-- Mouse top divider line (clickable surface) -->
+  <line x1="100" y1="30" x2="100" y2="78"
+        stroke="#444446" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Mouse subtle highlight -->
+  <ellipse cx="100" cy="52" rx="28" ry="14"
+           fill="none" stroke="#3A3A3C" stroke-width="1"/>
+
+  <!-- Tap ripple circles -->
+  <circle cx="100" cy="85" r="18" fill="none" stroke="#0A84FF" stroke-width="1.5" opacity="0.3"/>
+  <circle cx="100" cy="85" r="12" fill="none" stroke="#0A84FF" stroke-width="1.8" opacity="0.55"/>
+  <circle cx="100" cy="85" r="6"  fill="#0A84FF" opacity="0.85"/>
+
+  <!-- Finger -->
+  <g filter="url(#shadow)">
+    <!-- Finger body -->
+    <rect x="88" y="100" width="22" height="58" rx="11" ry="11"
+          fill="url(#fingerGrad)"/>
+    <!-- Fingernail -->
+    <ellipse cx="99" cy="106" rx="7" ry="5"
+             fill="#E8C4A8" opacity="0.7"/>
+    <!-- Finger knuckle line -->
+    <path d="M89 128 Q99 132 110 128" fill="none" stroke="#E0AA88" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+  </g>
+
+  <!-- App name text -->
+  <text x="100" y="175" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif"
+        font-size="18" font-weight="700" fill="#1C1C1E" text-anchor="middle" letter-spacing="-0.5">
+    MagicTap
+  </text>
+</svg>
