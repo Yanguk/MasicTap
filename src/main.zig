@@ -52,7 +52,6 @@ var initialized = false;
 const TAP_MIN_DURATION: f64 = 0.05;
 const TAP_MAX_DURATION: f64 = 0.5;
 const TAP_MAX_MOVE: f32 = 0.045;
-const DOUBLE_TAP_MAX_INTERVAL: f64 = 0.30;
 
 fn initFingerStates() void {
     if (!initialized) {
@@ -102,53 +101,13 @@ fn clickAtCursor() void {
     std.debug.print("✓ Click at ({d}, {d})\n", .{ pos.x, pos.y });
 }
 
-fn doubleClickAtCursor() void {
-    const source = c.CGEventSourceCreate(c.kCGEventSourceStateHIDSystemState);
-    const event = c.CGEventCreate(source);
-    const pos = c.CGEventGetLocation(event);
-    c.CFRelease(event);
-    c.CFRelease(source);
-
-    const down1 = c.CGEventCreateMouseEvent(null, c.kCGEventLeftMouseDown, pos, c.kCGMouseButtonLeft);
-    const up1 = c.CGEventCreateMouseEvent(null, c.kCGEventLeftMouseUp, pos, c.kCGMouseButtonLeft);
-    c.CGEventSetIntegerValueField(down1, c.kCGMouseEventClickState, 1);
-    c.CGEventSetIntegerValueField(up1, c.kCGMouseEventClickState, 1);
-
-    const down2 = c.CGEventCreateMouseEvent(null, c.kCGEventLeftMouseDown, pos, c.kCGMouseButtonLeft);
-    const up2 = c.CGEventCreateMouseEvent(null, c.kCGEventLeftMouseUp, pos, c.kCGMouseButtonLeft);
-    c.CGEventSetIntegerValueField(down2, c.kCGMouseEventClickState, 2);
-    c.CGEventSetIntegerValueField(up2, c.kCGMouseEventClickState, 2);
-
-    c.CGEventPost(c.kCGHIDEventTap, down1);
-    c.CGEventPost(c.kCGHIDEventTap, up1);
-    c.CGEventPost(c.kCGHIDEventTap, down2);
-    c.CGEventPost(c.kCGHIDEventTap, up2);
-
-    c.CFRelease(down1);
-    c.CFRelease(up1);
-    c.CFRelease(down2);
-    c.CFRelease(up2);
-
-    std.debug.print("✓ Double click at ({d}, {d})\n", .{ pos.x, pos.y });
-}
-
-var pending_tap_time: f64 = -1.0;
-
-fn flushPendingSingleTap(now: f64) void {
-    if (pending_tap_time < 0) return;
-    if ((now - pending_tap_time) <= DOUBLE_TAP_MAX_INTERVAL) return;
-
-    clickAtCursor();
-    pending_tap_time = -1.0;
-}
-
 // ----------------- 탭 감지 콜백 -----------------
 var current_ids: [MAX_FINGERS]c_int = undefined;
+var prev_n: usize = 0;
 
 export fn touchCallback(device: MTDeviceRef, data: [*c]Touch, n_fingers: c_int, timestamp: f64, frame: c_int) c_int {
     _ = frame;
     initFingerStates();
-    flushPendingSingleTap(timestamp);
 
     const n: usize = @intCast(n_fingers);
 
@@ -161,15 +120,19 @@ export fn touchCallback(device: MTDeviceRef, data: [*c]Touch, n_fingers: c_int, 
         const t = data[i];
 
         if (findFingerState(t.identifier)) |state| {
+            // 기존 추적 손가락: 이동량 초과 시 취소
             const dx = t.normalized.position.x - state.start_pos.x;
             const dy = t.normalized.position.y - state.start_pos.y;
             if (dx*dx + dy*dy > TAP_MAX_MOVE*TAP_MAX_MOVE) {
                 state.tracking = false;
             }
-        } else if (getAvailableFingerState()) |state| {
-            state.* = .{ .identifier = t.identifier, .start_time = timestamp, .start_pos = t.normalized.position, .tracking = true };
-            std.debug.print("[0x{X}] Finger {} tap started at ({d:.4}, {d:.4})\n",
-                .{@intFromPtr(device), t.identifier, t.normalized.position.x, t.normalized.position.y});
+        } else if (n > prev_n) {
+            // 손가락 수가 증가했을 때만 새 손가락 추적 시작
+            if (getAvailableFingerState()) |state| {
+                state.* = .{ .identifier = t.identifier, .start_time = timestamp, .start_pos = t.normalized.position, .tracking = true };
+                std.debug.print("[0x{X}] Finger {} tap started at ({d:.4}, {d:.4})\n",
+                    .{@intFromPtr(device), t.identifier, t.normalized.position.x, t.normalized.position.y});
+            }
         }
     }
 
@@ -188,22 +151,15 @@ export fn touchCallback(device: MTDeviceRef, data: [*c]Touch, n_fingers: c_int, 
         if (!still_down) {
             const duration = timestamp - s.start_time;
             if (duration >= TAP_MIN_DURATION and duration <= TAP_MAX_DURATION) {
-                std.debug.print("[0x{X}] ✓ Tap detected! Finger {} Duration: {d:.3}s\n",
+                std.debug.print("[0x{X}] ✓ Tap! Finger {} duration: {d:.3}s\n",
                     .{@intFromPtr(device), s.identifier, duration});
-
-                if (pending_tap_time >= 0 and (timestamp - pending_tap_time) <= DOUBLE_TAP_MAX_INTERVAL) {
-                    std.debug.print("[0x{X}] ✓ Double tap detected! Interval: {d:.3}s\n",
-                        .{ @intFromPtr(device), timestamp - pending_tap_time });
-                    doubleClickAtCursor();
-                    pending_tap_time = -1.0;
-                } else {
-                    pending_tap_time = timestamp;
-                }
+                clickAtCursor();
             }
             s.tracking = false;
         }
     }
 
+    prev_n = n;
     return 0;
 }
 
