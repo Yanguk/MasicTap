@@ -68,7 +68,7 @@ struct MagicTapClientApp: App {
     @StateObject private var controller = BackendController()
 
     var body: some Scene {
-        MenuBarExtra("MagicTap", systemImage: controller.isRunning ? "bolt.fill" : "bolt.slash") {
+        MenuBarExtra("MagicTap", systemImage: controller.isRunning ? "hand.tap.fill" : "hand.tap") {
             Text(controller.isRunning ? "● 실행 중" : "○ 중지됨")
                 .foregroundStyle(controller.isRunning ? .green : .secondary)
 
