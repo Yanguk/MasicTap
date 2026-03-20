@@ -84,7 +84,12 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.addFrameworkPath(b.path("local_frameworks"));
-    // exe.addFrameworkPath(.{ .cwd_relative = "/System/Library/PrivateFrameworks" });
+
+    // SDKROOT가 설정된 경우 (Nix 환경 등) SDK 내 프레임워크 경로도 추가
+    if (b.graph.env_map.get("SDKROOT")) |sdk| {
+        const sdk_frameworks = b.pathJoin(&.{ sdk, "System/Library/Frameworks" });
+        exe.addFrameworkPath(.{ .cwd_relative = sdk_frameworks });
+    }
 
     exe.linkFramework("MultitouchSupport");
     exe.linkFramework("CoreFoundation");

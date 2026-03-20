@@ -12,15 +12,15 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 # 1. Zig 백엔드 빌드
 echo "==> Building Zig backend..."
-cd "$REPO_ROOT"
-zig build -Doptimize=ReleaseSafe
-cp "$REPO_ROOT/zig-out/bin/zig_my_mouse" "$APP/Contents/MacOS/zig_my_mouse"
+cd "$REPO_ROOT/src/backend"
+NIX_CFLAGS_COMPILE="" zig build -Doptimize=ReleaseSafe
+cp "$REPO_ROOT/src/backend/zig-out/bin/zig_my_mouse" "$APP/Contents/MacOS/zig_my_mouse"
 
 # 2. Swift 클라이언트 빌드
 echo "==> Building Swift client..."
-cd "$REPO_ROOT/mac-client"
-swift build -c release 2>&1
-SWIFT_BIN="$(swift build -c release --show-bin-path 2>/dev/null)/MagicTapClient"
+cd "$REPO_ROOT/src/client"
+env -u SDKROOT -u DEVELOPER_DIR swift build -c release 2>&1
+SWIFT_BIN="$(env -u SDKROOT -u DEVELOPER_DIR swift build -c release --show-bin-path 2>/dev/null)/MagicTapClient"
 cp "$SWIFT_BIN" "$APP/Contents/MacOS/MagicTapClient"
 
 # 3. Info.plist 생성

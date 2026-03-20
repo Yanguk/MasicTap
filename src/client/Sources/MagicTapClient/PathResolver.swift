@@ -15,16 +15,16 @@ func resolveBackendPath(
     }
 
     // 2) 실행 파일(.build/arch/config/MagicTapClient) 기준으로 프로젝트 루트 탐색
-    //    경로 구조: <root>/mac-client/.build/<arch>/<config>/MagicTapClient
-    //    → deletingLastPathComponent 5번 → <root>/mac-client → 한 번 더 → <root>
+    //    경로 구조: <root>/src/client/.build/<arch>/<config>/MagicTapClient
+    //    → deletingLastPathComponent 6번 → <root>
     var dir = (executablePath as NSString).deletingLastPathComponent  // <config>/
-    for _ in 0..<4 {
+    for _ in 0..<5 {
         dir = (dir as NSString).deletingLastPathComponent
     }
     // dir == <project-root>
-    let candidate = dir + "/zig-out/bin/zig_my_mouse"
+    let candidate = dir + "/src/backend/zig-out/bin/zig_my_mouse"
     if fileExists(candidate) { return candidate }
 
     // 3) fallback
-    return "../zig-out/bin/zig_my_mouse"
+    return "../../src/backend/zig-out/bin/zig_my_mouse"
 }
