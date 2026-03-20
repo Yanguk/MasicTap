@@ -3,40 +3,36 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
+    flake-parts.url = "github:hercules-ci/flake-parts";
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      flake-utils,
-    }:
-    flake-utils.lib.eachSystem [ "aarch64-darwin" ] (
-      system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          name = "magic-tap";
+    inputs@{ flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [ "aarch64-darwin" ];
 
-          packages = with pkgs; [
-            # Backend
-            zig
-            zls # Zig Language Server
+      perSystem =
+        { pkgs, ... }:
+        {
+          devShells.default = pkgs.mkShell {
+            name = "magic-tap";
 
-            # Tooling
-            just
-          ];
+            packages = with pkgs; [
+              # Backend
+              zig
+              zls # Zig Language Server
 
-          shellHook = ''
-            echo "MagicTap dev shell"
-            echo "  just build       – build backend + client"
-            echo "  just run-backend – run Zig backend"
-            echo "  just run-client  – run Swift client"
-          '';
+              # Tooling
+              just
+            ];
+
+            shellHook = ''
+              echo "MagicTap dev shell"
+              echo "  just build       – build backend + client"
+              echo "  just run-backend – run Zig backend"
+              echo "  just run-client  – run Swift client"
+            '';
+          };
         };
-      }
-    );
+    };
 }
