@@ -1,4 +1,5 @@
 const std = @import("std");
+const tap = @import("zig_my_mouse");
 
 const c = @cImport({
     @cInclude("unistd.h");
@@ -7,7 +8,7 @@ const c = @cImport({
     @cInclude("ApplicationServices/ApplicationServices.h");
 });
 
-// ----------------- 타입 정의 -----------------
+// ----------------- 타입 정의 (C 바인딩) -----------------
 const MtPoint = extern struct { x: f32, y: f32 };
 const MtReadout = extern struct { position: MtPoint, velocity: MtPoint };
 const Touch = extern struct {
@@ -36,50 +37,11 @@ extern fn MTRegisterContactFrameCallback(device: MTDeviceRef, callback: MTContac
 extern fn MTDeviceStart(device: MTDeviceRef, options: c_int) void;
 extern fn MTDeviceIsBuiltIn(device: MTDeviceRef) bool;
 extern fn MTDeviceGetProductID(device: MTDeviceRef) c_int;
-// ----------------- 탭 상태 -----------------
-const FingerTapState = struct {
-    identifier: c_int,
-    start_time: f64,
-    start_pos: MtPoint,
-    tracking: bool,
-};
 
-const MAX_FINGERS = 10;
-var finger_states: [MAX_FINGERS]FingerTapState = undefined;
-var initialized = false;
-
-// ----------------- 탭 조건 -----------------
-const TAP_MIN_DURATION: f64 = 0.05;
-const TAP_MAX_DURATION: f64 = 0.5;
-const TAP_MAX_MOVE: f32 = 0.045;
-
-fn initFingerStates() void {
-    if (!initialized) {
-        for (&finger_states) |*s| {
-            s.* = .{
-                .identifier = -1,
-                .start_time = 0,
-                .start_pos = .{ .x = 0, .y = 0 },
-                .tracking = false,
-            };
-        }
-        initialized = true;
-    }
-}
-
-fn findFingerState(id: c_int) ?*FingerTapState {
-    for (&finger_states) |*s| {
-        if (s.tracking and s.identifier == id) return s;
-    }
-    return null;
-}
-
-fn getAvailableFingerState() ?*FingerTapState {
-    for (&finger_states) |*s| {
-        if (!s.tracking) return s;
-    }
-    return null;
-}
+// ----------------- 전역 상태 -----------------
+var finger_table = tap.FingerStateTable.init();
+var current_ids: [tap.MAX_FINGERS]c_int = undefined;
+var prev_n: usize = 0;
 
 // ----------------- 마우스 클릭 -----------------
 fn clickAtCursor() void {
@@ -102,12 +64,8 @@ fn clickAtCursor() void {
 }
 
 // ----------------- 탭 감지 콜백 -----------------
-var current_ids: [MAX_FINGERS]c_int = undefined;
-var prev_n: usize = 0;
-
 export fn touchCallback(device: MTDeviceRef, data: [*c]Touch, n_fingers: c_int, timestamp: f64, frame: c_int) c_int {
     _ = frame;
-    initFingerStates();
 
     const n: usize = @intCast(n_fingers);
 
@@ -118,26 +76,32 @@ export fn touchCallback(device: MTDeviceRef, data: [*c]Touch, n_fingers: c_int, 
 
     for (0..n) |i| {
         const t = data[i];
+        const id: i32 = @intCast(t.identifier);
 
-        if (findFingerState(t.identifier)) |state| {
+        if (finger_table.find(id)) |state| {
             // 기존 추적 손가락: 이동량 초과 시 취소
             const dx = t.normalized.position.x - state.start_pos.x;
             const dy = t.normalized.position.y - state.start_pos.y;
-            if (dx*dx + dy*dy > TAP_MAX_MOVE*TAP_MAX_MOVE) {
+            if (tap.isTapMoveCancelled(dx, dy)) {
                 state.tracking = false;
             }
         } else if (n > prev_n) {
             // 손가락 수가 증가했을 때만 새 손가락 추적 시작
-            if (getAvailableFingerState()) |state| {
-                state.* = .{ .identifier = t.identifier, .start_time = timestamp, .start_pos = t.normalized.position, .tracking = true };
+            if (finger_table.getAvailable()) |state| {
+                state.* = .{
+                    .identifier = id,
+                    .start_time = timestamp,
+                    .start_pos = .{ .x = t.normalized.position.x, .y = t.normalized.position.y },
+                    .tracking = true,
+                };
                 std.debug.print("[0x{X}] Finger {} tap started at ({d:.4}, {d:.4})\n",
-                    .{@intFromPtr(device), t.identifier, t.normalized.position.x, t.normalized.position.y});
+                    .{ @intFromPtr(device), id, t.normalized.position.x, t.normalized.position.y });
             }
         }
     }
 
     // 손가락 떼기 확인
-    for (&finger_states) |*s| {
+    for (&finger_table.states) |*s| {
         if (!s.tracking) continue;
 
         var still_down = false;
@@ -150,9 +114,9 @@ export fn touchCallback(device: MTDeviceRef, data: [*c]Touch, n_fingers: c_int, 
 
         if (!still_down) {
             const duration = timestamp - s.start_time;
-            if (duration >= TAP_MIN_DURATION and duration <= TAP_MAX_DURATION) {
+            if (tap.isTapDurationValid(duration)) {
                 std.debug.print("[0x{X}] ✓ Tap! Finger {} duration: {d:.3}s\n",
-                    .{@intFromPtr(device), s.identifier, duration});
+                    .{ @intFromPtr(device), s.identifier, duration });
                 clickAtCursor();
             }
             s.tracking = false;
