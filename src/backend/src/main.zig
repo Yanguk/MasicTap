@@ -36,7 +36,6 @@ extern fn MTDeviceCreateList() c.CFArrayRef;
 extern fn MTRegisterContactFrameCallback(device: MTDeviceRef, callback: MTContactCallbackFunction) void;
 extern fn MTDeviceStart(device: MTDeviceRef, options: c_int) void;
 extern fn MTDeviceIsBuiltIn(device: MTDeviceRef) bool;
-extern fn MTDeviceGetProductID(device: MTDeviceRef) c_int;
 
 // ----------------- 전역 상태 -----------------
 var finger_table = tap.FingerStateTable.init();
@@ -137,14 +136,11 @@ pub fn main() void {
     const count = c.CFArrayGetCount(devices);
     std.debug.print("Found {} device(s)\n", .{count});
 
-    // Magic Mouse product IDs
-    const MAGIC_MOUSE_1_PID: c_int = 0x030D;
-    const MAGIC_MOUSE_2_PID: c_int = 0x0269;
-
     const device_count: usize = @intCast(count);
     for (0..device_count) |idx| {
         const cf_idx: c.CFIndex = @intCast(idx);
         const raw_dev = c.CFArrayGetValueAtIndex(devices, cf_idx);
+        if (raw_dev == null) continue;
         const dev: MTDeviceRef = @ptrCast(@constCast(raw_dev));
 
         if (MTDeviceIsBuiltIn(dev)) {
@@ -152,13 +148,7 @@ pub fn main() void {
             continue;
         }
 
-        const pid = MTDeviceGetProductID(dev);
-        if (pid != MAGIC_MOUSE_1_PID and pid != MAGIC_MOUSE_2_PID) {
-            std.debug.print("Skipping non-Magic-Mouse device (pid=0x{X})\n", .{pid});
-            continue;
-        }
-
-        std.debug.print("Magic Mouse detected (pid=0x{X}), registering...\n", .{pid});
+        std.debug.print("External device detected, registering...\n", .{});
         MTRegisterContactFrameCallback(dev, touchCallback);
         MTDeviceStart(dev, 0);
     }
