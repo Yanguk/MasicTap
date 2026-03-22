@@ -48,3 +48,13 @@ release version="v0.1.0":
 # 릴리스 업로드
 upload version="v0.1.0":
     bash scripts/upload-release.sh {{ version }}
+
+# 릴리스 (서명 + 공증 포함)
+# 사용 예:
+#   export CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+#   export APPLE_ID="your@email.com"
+#   export APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+#   export TEAM_ID="XXXXXXXXXX"
+#   just release-signed v0.2.0
+release-signed version="v0.1.0":
+    bash scripts/build-release.sh {{ version }}

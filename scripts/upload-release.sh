@@ -25,7 +25,20 @@ else
   echo "==> Creating release $VERSION..."
   gh release create "$VERSION" \
     --title "MagicTap $VERSION" \
-    --notes "MagicTap $VERSION"
+    --notes "## 설치 방법
+
+1. \`MagicTap-${VERSION}-arm64.dmg\` 다운로드
+2. DMG를 열고 \`MagicTap.app\`을 \`/Applications\`로 드래그
+
+### ⚠️ \"damaged\" 오류 발생 시
+
+Apple 공증이 없는 오픈소스 앱입니다. 터미널에서 아래 명령어를 실행하세요:
+
+\`\`\`bash
+xattr -d com.apple.quarantine /Applications/MagicTap.app
+\`\`\`
+
+이후 앱을 정상 실행할 수 있습니다."
 fi
 
 for FILE in "$DMG" "$ZIP"; do
